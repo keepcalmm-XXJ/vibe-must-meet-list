@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "Auto GitHub Commit",
+  "description": "Automatically commits and pushes all changes to GitHub repository whenever a task is completed",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*",
+      "package.json",
+      "README.md",
+      "docs/**/*",
+      "tests/**/*",
+      "database/**/*"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A task has been completed and files have been modified. Please commit all changes to git with a descriptive commit message and push to the GitHub repository. Use git add ., git commit with an appropriate message describing what was accomplished, and git push origin main."
+  }
+}
