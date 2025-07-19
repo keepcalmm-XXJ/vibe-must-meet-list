@@ -17,11 +17,5 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  moduleNameMapping: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-    '^@/shared/(.*)$': '<rootDir>/src/shared/$1',
-    '^@/client/(.*)$': '<rootDir>/src/client/$1',
-    '^@/server/(.*)$': '<rootDir>/src/server/$1'
-  }
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts']
 };
