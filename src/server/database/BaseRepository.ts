@@ -1,6 +1,6 @@
 import { Database } from 'sqlite';
 import sqlite3 from 'sqlite3';
-import DatabaseManager from './connection';
+import { getDatabase } from './connection';
 
 export interface QueryOptions {
   limit?: number;
@@ -19,7 +19,7 @@ export abstract class BaseRepository<T> {
 
   constructor(tableName: string) {
     this.tableName = tableName;
-    this.db = DatabaseManager.getInstance().getConnection();
+    this.db = getDatabase();
   }
 
   /**
