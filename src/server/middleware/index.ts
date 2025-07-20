@@ -3,3 +3,4 @@ export * from './logger';
 export * from './security';
 export * from './errorHandler';
 export * from './validation';
+export * from './auth';
