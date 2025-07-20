@@ -2,7 +2,9 @@ import { Router, Response } from 'express';
 import { asyncHandler, authenticateToken, AuthenticatedRequest, validate } from '../middleware';
 import { handleAvatarUpload, getAvatarUrl, deleteAvatarFile } from '../middleware/upload';
 import { UserService } from '../services/UserService';
+import { MatchingPreferencesService } from '../services/MatchingPreferencesService';
 import { updateProfileSchema } from '../../shared/validators/user';
+import { updateMatchingPreferencesSchema } from '../../shared/validators/matchingPreferences';
 
 const router = Router();
 
@@ -85,27 +87,50 @@ router.post('/avatar',
 );
 
 // GET /api/v1/users/preferences
-router.get('/preferences', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  // TODO: Implement get matching preferences
-  res.status(501).json({
-    error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'Get matching preferences not yet implemented',
+router.get('/preferences', 
+  authenticateToken, 
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const preferencesService = new MatchingPreferencesService();
+    const preferences = await preferencesService.getPreferences(req.user!.id);
+    
+    res.json({
+      success: true,
+      data: { preferences },
       timestamp: new Date().toISOString(),
-    },
-  });
-}));
+    });
+  })
+);
 
 // PUT /api/v1/users/preferences
-router.put('/preferences', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  // TODO: Implement update matching preferences
-  res.status(501).json({
-    error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'Update matching preferences not yet implemented',
+router.put('/preferences', 
+  authenticateToken,
+  validate({ body: updateMatchingPreferencesSchema }),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const preferencesService = new MatchingPreferencesService();
+    const updatedPreferences = await preferencesService.setPreferences(req.user!.id, req.body);
+    
+    res.json({
+      success: true,
+      message: 'Matching preferences updated successfully',
+      data: { preferences: updatedPreferences },
       timestamp: new Date().toISOString(),
-    },
-  });
-}));
+    });
+  })
+);
+
+// DELETE /api/v1/users/preferences
+router.delete('/preferences', 
+  authenticateToken,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const preferencesService = new MatchingPreferencesService();
+    await preferencesService.deletePreferences(req.user!.id);
+    
+    res.json({
+      success: true,
+      message: 'Matching preferences deleted successfully',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
 
 export { router as userRoutes };
