@@ -2,6 +2,7 @@ import { UserModel } from '../models/User';
 import { User, UserProfile } from '../../shared/types/User';
 import { ValidationError, NotFoundError } from '../middleware/errorHandler';
 import { getDatabase } from '../database/connection';
+import { Database } from 'sqlite';
 
 export interface UserProfileUpdateData {
   name?: string;
@@ -18,8 +19,8 @@ export interface UserProfileUpdateData {
 export class UserService {
   private userModel: UserModel;
 
-  constructor() {
-    this.userModel = new UserModel(getDatabase());
+  constructor(db?: Database) {
+    this.userModel = new UserModel(db || getDatabase());
   }
 
   /**

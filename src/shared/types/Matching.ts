@@ -35,6 +35,12 @@ export interface MatchResult {
   common_interests: string[];
   business_synergies: string[];
   recommendation_strength: RecommendationStrength;
+  partial_match?: {
+    matchedCriteria: string[];
+    missedCriteria: string[];
+    matchPercentage: number;
+    explanation: string;
+  };
 }
 
 export interface MatchReason {
