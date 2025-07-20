@@ -18,6 +18,7 @@ import {
   notFoundHandler,
 } from './middleware';
 import { apiRoutes } from './routes';
+import { initializeDatabase } from './database/connection';
 
 const app = express();
 const server = createServer(app);
@@ -148,17 +149,30 @@ app.use(errorLogger);
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-// Start server
-server.listen(appConfig.port, () => {
-  console.log(`[${new Date().toISOString()}] Server started successfully`);
-  console.log(`[${new Date().toISOString()}] Port: ${appConfig.port}`);
-  console.log(`[${new Date().toISOString()}] Environment: ${appConfig.nodeEnv}`);
-  console.log(`[${new Date().toISOString()}] API Base URL: http://localhost:${appConfig.port}/api/v1`);
-  
-  if (appConfig.isDevelopment) {
-    console.log(`[${new Date().toISOString()}] Health check: http://localhost:${appConfig.port}/api/v1/health`);
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Initialize database connection
+    await initializeDatabase();
+    
+    // Start server
+    server.listen(appConfig.port, () => {
+      console.log(`[${new Date().toISOString()}] Server started successfully`);
+      console.log(`[${new Date().toISOString()}] Port: ${appConfig.port}`);
+      console.log(`[${new Date().toISOString()}] Environment: ${appConfig.nodeEnv}`);
+      console.log(`[${new Date().toISOString()}] API Base URL: http://localhost:${appConfig.port}/api/v1`);
+      
+      if (appConfig.isDevelopment) {
+        console.log(`[${new Date().toISOString()}] Health check: http://localhost:${appConfig.port}/api/v1/health`);
+      }
+    });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Failed to start server:`, error);
+    process.exit(1);
   }
-});
+}
+
+startServer();
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {

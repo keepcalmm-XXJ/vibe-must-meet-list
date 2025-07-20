@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { asyncHandler } from '../middleware';
+import { asyncHandler, validate, authenticateToken } from '../middleware';
+import { AuthService } from '../services/AuthService';
+import { registerSchema, loginSchema } from '../../shared/validators/auth';
 
 const router = Router();
 
@@ -9,51 +11,80 @@ const router = Router();
  */
 
 // POST /api/v1/auth/register
-router.post('/register', asyncHandler(async (req: Request, res: Response) => {
-  // TODO: Implement user registration
-  res.status(501).json({
-    error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'User registration not yet implemented',
+router.post('/register', 
+  validate({ body: registerSchema }),
+  asyncHandler(async (req: Request, res: Response) => {
+    const authService = new AuthService();
+    const result = await authService.register(req.body);
+    
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: result,
       timestamp: new Date().toISOString(),
-    },
-  });
-}));
+    });
+  })
+);
 
 // POST /api/v1/auth/login
-router.post('/login', asyncHandler(async (req: Request, res: Response) => {
-  // TODO: Implement user login
-  res.status(501).json({
-    error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'User login not yet implemented',
+router.post('/login',
+  validate({ body: loginSchema }),
+  asyncHandler(async (req: Request, res: Response) => {
+    const authService = new AuthService();
+    const result = await authService.login(req.body);
+    
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: result,
       timestamp: new Date().toISOString(),
-    },
-  });
-}));
+    });
+  })
+);
 
 // POST /api/v1/auth/logout
-router.post('/logout', asyncHandler(async (req: Request, res: Response) => {
-  // TODO: Implement user logout
-  res.status(501).json({
-    error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'User logout not yet implemented',
+router.post('/logout', 
+  authenticateToken,
+  asyncHandler(async (req: Request, res: Response) => {
+    // For JWT tokens, logout is handled client-side by removing the token
+    // Server-side logout would require token blacklisting (future enhancement)
+    res.json({
+      success: true,
+      message: 'Logout successful',
       timestamp: new Date().toISOString(),
-    },
-  });
-}));
+    });
+  })
+);
 
 // POST /api/v1/auth/refresh
-router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
-  // TODO: Implement token refresh
-  res.status(501).json({
-    error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'Token refresh not yet implemented',
+router.post('/refresh',
+  authenticateToken,
+  asyncHandler(async (req: Request, res: Response) => {
+    const authService = new AuthService();
+    const result = await authService.refreshToken(req.user!.id);
+    
+    res.json({
+      success: true,
+      message: 'Token refreshed successfully',
+      data: result,
       timestamp: new Date().toISOString(),
-    },
-  });
-}));
+    });
+  })
+);
+
+// GET /api/v1/auth/me - Get current user profile
+router.get('/me',
+  authenticateToken,
+  asyncHandler(async (req: Request, res: Response) => {
+    const authService = new AuthService();
+    const profile = await authService.getProfile(req.user!.id);
+    
+    res.json({
+      success: true,
+      data: { user: profile },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
 
 export { router as authRoutes };

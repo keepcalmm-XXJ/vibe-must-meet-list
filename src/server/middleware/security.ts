@@ -13,59 +13,7 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-/**
- * JWT Authentication middleware
- */
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-  
-  if (!token) {
-    return res.status(401).json({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Access token is required',
-        timestamp: new Date().toISOString(),
-        requestId: req.headers['x-request-id'] || 'unknown',
-      },
-    });
-  }
-  
-  jwt.verify(token, appConfig.security.jwtSecret, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Invalid or expired token',
-          timestamp: new Date().toISOString(),
-          requestId: req.headers['x-request-id'] || 'unknown',
-        },
-      });
-    }
-    
-    req.user = decoded as any;
-    next();
-  });
-};
-
-/**
- * Optional authentication middleware - doesn't fail if no token
- */
-export const optionalAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    return next();
-  }
-  
-  jwt.verify(token, appConfig.security.jwtSecret, (err, decoded) => {
-    if (!err) {
-      req.user = decoded as any;
-    }
-    next();
-  });
-};
+// JWT Authentication middleware is now in auth.ts to avoid conflicts
 
 /**
  * Request ID middleware for tracking

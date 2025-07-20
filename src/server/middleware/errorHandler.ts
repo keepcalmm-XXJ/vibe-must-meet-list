@@ -60,6 +60,36 @@ export class ForbiddenError extends AppError {
 }
 
 /**
+ * Authentication error handler
+ */
+export class AuthenticationError extends AppError {
+  constructor(message: string = 'Authentication failed') {
+    super(message, 401, 'AUTHENTICATION_ERROR');
+    this.name = 'AuthenticationError';
+  }
+}
+
+/**
+ * Authorization error handler
+ */
+export class AuthorizationError extends AppError {
+  constructor(message: string = 'Authorization failed') {
+    super(message, 403, 'AUTHORIZATION_ERROR');
+    this.name = 'AuthorizationError';
+  }
+}
+
+/**
+ * Conflict error handler
+ */
+export class ConflictError extends AppError {
+  constructor(message: string = 'Resource conflict') {
+    super(message, 409, 'CONFLICT_ERROR');
+    this.name = 'ConflictError';
+  }
+}
+
+/**
  * Global error handler middleware
  */
 export const globalErrorHandler = (
@@ -76,6 +106,10 @@ export const globalErrorHandler = (
   if (error instanceof AppError) {
     statusCode = error.statusCode;
     code = error.code;
+    message = error.message;
+  } else if (error.name === 'AuthenticationError') {
+    statusCode = 401;
+    code = 'AUTHENTICATION_ERROR';
     message = error.message;
   } else if (error.name === 'ValidationError') {
     statusCode = 400;

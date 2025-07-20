@@ -76,7 +76,7 @@ export const optionalAuth = (req: Request, res: Response, next: NextFunction) =>
     };
   } catch (error) {
     // Silently ignore invalid tokens for optional auth
-    console.warn('Optional auth token verification failed:', error.message);
+    console.warn('Optional auth token verification failed:', error instanceof Error ? error.message : 'Unknown error');
   }
 
   next();
@@ -94,7 +94,7 @@ export const generateToken = (user: { id: string; email: string; name: string })
 
   return jwt.sign(payload, appConfig.security.jwtSecret, {
     expiresIn: appConfig.security.jwtExpiresIn,
-  });
+  } as jwt.SignOptions);
 };
 
 /**
