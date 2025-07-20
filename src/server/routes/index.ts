@@ -1,1 +1,34 @@
-// API routes exports
+import { Router } from 'express';
+import { authRoutes } from './auth';
+import { userRoutes } from './users';
+import { eventRoutes } from './events';
+import { matchingRoutes } from './matching';
+import { connectionRoutes } from './connections';
+import { messageRoutes } from './messages';
+
+const router = Router();
+
+/**
+ * API v1 routes
+ * Base path: /api/v1
+ */
+
+// Health check endpoint
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
+// Mount route modules
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/events', eventRoutes);
+router.use('/matching', matchingRoutes);
+router.use('/connections', connectionRoutes);
+router.use('/messages', messageRoutes);
+
+export { router as apiRoutes };
