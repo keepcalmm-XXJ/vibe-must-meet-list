@@ -2,3 +2,4 @@
 export * from './AuthService';
 export * from './UserService';
 export * from './MatchingPreferencesService';
+export * from './EventService';
