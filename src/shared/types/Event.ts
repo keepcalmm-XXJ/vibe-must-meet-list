@@ -1,30 +1,34 @@
+export type EventStatus = 'ACTIVE' | 'INACTIVE' | 'COMPLETED' | 'CANCELLED';
+export type ParticipantStatus = 'ACTIVE' | 'LEFT' | 'REMOVED';
+
 export interface Event {
   id: string;
   name: string;
-  description: string;
-  startDate: Date;
-  endDate: Date;
+  description?: string;
+  start_date: Date;
+  end_date: Date;
   location: string;
-  organizerId: string;
-  eventCode: string;
-  maxParticipants?: number;
+  organizer_id: string;
+  event_code: string;
+  max_participants?: number;
   status: EventStatus;
-  participants: string[];
-  createdAt: Date;
-}
-
-export enum EventStatus {
-  DRAFT = 'draft',
-  ACTIVE = 'active',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface EventCreationData {
   name: string;
-  description: string;
-  startDate: Date;
-  endDate: Date;
+  description?: string;
+  start_date: Date;
+  end_date: Date;
   location: string;
-  maxParticipants?: number;
+  max_participants?: number;
+}
+
+export interface EventParticipant {
+  id: number;
+  event_id: string;
+  user_id: string;
+  joined_at: Date;
+  status: ParticipantStatus;
 }
