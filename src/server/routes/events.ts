@@ -343,4 +343,187 @@ router.post('/:id/leave', authenticateToken, asyncHandler(async (req: Authentica
   }
 }));
 
+// Enhanced participant management routes
+
+// GET /api/v1/events/:id/participants/count - Get participant count
+router.get('/:id/participants/count', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const eventService = new EventService();
+    const eventId = req.params.id;
+    const userId = req.user!.id;
+
+    const count = await eventService.getParticipantCount(eventId, userId);
+
+    res.json({
+      success: true,
+      data: { count },
+    });
+  } catch (error: any) {
+    console.error('Error getting participant count:', error);
+    const statusCode = error.message.includes('Access denied') ? 403 : 500;
+    res.status(statusCode).json({
+      error: {
+        code: 'GET_PARTICIPANT_COUNT_ERROR',
+        message: error.message || 'Failed to get participant count',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+}));
+
+// POST /api/v1/events/:id/participants/remove - Remove participant (organizer only)
+router.post('/:id/participants/remove', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const eventService = new EventService();
+    const eventId = req.params.id;
+    const organizerId = req.user!.id;
+    const { participantId } = req.body;
+
+    if (!participantId) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Participant ID is required',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    const success = await eventService.removeParticipant(eventId, participantId, organizerId);
+
+    res.json({
+      success: true,
+      data: { removed: success },
+      message: 'Participant removed successfully',
+    });
+  } catch (error: any) {
+    console.error('Error removing participant:', error);
+    const statusCode = error.message.includes('Only event organizer') ? 403 : 400;
+    res.status(statusCode).json({
+      error: {
+        code: 'REMOVE_PARTICIPANT_ERROR',
+        message: error.message || 'Failed to remove participant',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+}));
+
+// POST /api/v1/events/:id/participants/bulk-add - Add multiple participants (organizer only)
+router.post('/:id/participants/bulk-add', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const eventService = new EventService();
+    const eventId = req.params.id;
+    const organizerId = req.user!.id;
+    const { participantIds } = req.body;
+
+    if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Participant IDs array is required and must not be empty',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    const results = await eventService.addMultipleParticipants(eventId, participantIds, organizerId);
+
+    res.json({
+      success: true,
+      data: results,
+      message: `Bulk add completed: ${results.success.length} successful, ${results.failed.length} failed`,
+    });
+  } catch (error: any) {
+    console.error('Error bulk adding participants:', error);
+    const statusCode = error.message.includes('Only event organizer') ? 403 : 400;
+    res.status(statusCode).json({
+      error: {
+        code: 'BULK_ADD_PARTICIPANTS_ERROR',
+        message: error.message || 'Failed to add participants',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+}));
+
+// GET /api/v1/events/:id/participants/check/:userId - Check if user is participant
+router.get('/:id/participants/check/:userId', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const eventService = new EventService();
+    const eventId = req.params.id;
+    const userId = req.params.userId;
+    const requesterId = req.user!.id;
+
+    const isParticipant = await eventService.isUserParticipant(eventId, userId, requesterId);
+
+    res.json({
+      success: true,
+      data: { isParticipant },
+    });
+  } catch (error: any) {
+    console.error('Error checking participant status:', error);
+    const statusCode = error.message.includes('Access denied') ? 403 : 500;
+    res.status(statusCode).json({
+      error: {
+        code: 'CHECK_PARTICIPANT_ERROR',
+        message: error.message || 'Failed to check participant status',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+}));
+
+// POST /api/v1/events/:id/reminders - Send event reminders (organizer only)
+router.post('/:id/reminders', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const eventService = new EventService();
+    const eventId = req.params.id;
+    const organizerId = req.user!.id;
+
+    await eventService.sendEventReminders(eventId, organizerId);
+
+    res.json({
+      success: true,
+      message: 'Event reminders sent successfully',
+    });
+  } catch (error: any) {
+    console.error('Error sending event reminders:', error);
+    const statusCode = error.message.includes('Only event organizer') ? 403 : 500;
+    res.status(statusCode).json({
+      error: {
+        code: 'SEND_REMINDERS_ERROR',
+        message: error.message || 'Failed to send event reminders',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+}));
+
+// GET /api/v1/events/:id/participants/detailed - Get detailed participant information (organizer only)
+router.get('/:id/participants/detailed', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const eventService = new EventService();
+    const eventId = req.params.id;
+    const organizerId = req.user!.id;
+
+    const participants = await eventService.getDetailedParticipants(eventId, organizerId);
+
+    res.json({
+      success: true,
+      data: participants,
+    });
+  } catch (error: any) {
+    console.error('Error getting detailed participants:', error);
+    const statusCode = error.message.includes('Only event organizer') ? 403 : 500;
+    res.status(statusCode).json({
+      error: {
+        code: 'GET_DETAILED_PARTICIPANTS_ERROR',
+        message: error.message || 'Failed to get detailed participant information',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+}));
+
 export { router as eventRoutes };

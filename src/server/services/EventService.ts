@@ -2,14 +2,17 @@ import { Event, EventCreationData, EventStatus } from '../../shared/types/Event'
 import { User } from '../../shared/types/User';
 import { EventModel } from '../models/Event';
 import { EventRepository } from '../database/repositories/EventRepository';
+import { NotificationService } from './NotificationService';
 
 export class EventService {
   private eventModel: EventModel;
   private eventRepository: EventRepository;
+  private notificationService: NotificationService;
 
   constructor() {
     this.eventModel = new EventModel();
     this.eventRepository = new EventRepository();
+    this.notificationService = new NotificationService();
   }
 
   /**
@@ -115,6 +118,16 @@ export class EventService {
       const updatedEvent = await this.eventModel.updateEventStatus(eventId, status);
       if (!updatedEvent) {
         throw new Error('Failed to update event status');
+      }
+
+      // Send notifications for status changes
+      if (status === 'CANCELLED') {
+        await this.notificationService.sendEventCancellationNotification(eventId);
+      } else {
+        await this.notificationService.sendEventUpdateNotification(
+          eventId, 
+          `Event status has been updated to: ${status}`
+        );
       }
 
       return updatedEvent;
@@ -263,6 +276,217 @@ export class EventService {
     } catch (error) {
       console.error('Error getting user events:', error);
       throw new Error('Failed to retrieve user events');
+    }
+  }
+
+  /**
+   * Enhanced participant management methods
+   */
+
+  /**
+   * Get participant count for an event
+   * Enhanced permission verification for requirement 2.4
+   */
+  async getParticipantCount(eventId: string, requesterId: string): Promise<number> {
+    try {
+      // Verify requester has permission to view participant information
+      const hasPermission = await this.verifyParticipantViewPermission(eventId, requesterId);
+      if (!hasPermission) {
+        throw new Error('Access denied: Insufficient permissions to view participant count');
+      }
+
+      return await this.eventRepository.getParticipantCount(eventId);
+    } catch (error) {
+      console.error('Error getting participant count:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if user is participant of event with enhanced permission verification
+   */
+  async isUserParticipant(eventId: string, userId: string, requesterId: string): Promise<boolean> {
+    try {
+      // Verify requester has permission to check participant status
+      const hasPermission = await this.verifyParticipantViewPermission(eventId, requesterId);
+      if (!hasPermission) {
+        throw new Error('Access denied: Insufficient permissions to check participant status');
+      }
+
+      return await this.eventRepository.isParticipant(eventId, userId);
+    } catch (error) {
+      console.error('Error checking participant status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove participant from event (organizer only)
+   * Enhanced participant management for requirement 2.4
+   */
+  async removeParticipant(eventId: string, participantId: string, organizerId: string): Promise<boolean> {
+    try {
+      // Check if requester is the organizer
+      const isOrganizer = await this.eventModel.isEventOrganizer(eventId, organizerId);
+      if (!isOrganizer) {
+        throw new Error('Only event organizer can remove participants');
+      }
+
+      // Check if target user is actually a participant
+      const isParticipant = await this.eventRepository.isParticipant(eventId, participantId);
+      if (!isParticipant) {
+        throw new Error('User is not a participant of this event');
+      }
+
+      // Prevent organizer from removing themselves
+      if (participantId === organizerId) {
+        throw new Error('Event organizer cannot be removed from the event');
+      }
+
+      const result = await this.eventRepository.removeParticipant(eventId, participantId);
+      
+      if (result) {
+        console.log(`[${new Date().toISOString()}] Participant ${participantId} removed from event ${eventId} by organizer ${organizerId}`);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error removing participant:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk add participants to event (organizer only)
+   */
+  async addMultipleParticipants(eventId: string, participantIds: string[], organizerId: string): Promise<{ success: string[]; failed: { id: string; reason: string }[] }> {
+    try {
+      // Check if requester is the organizer
+      const isOrganizer = await this.eventModel.isEventOrganizer(eventId, organizerId);
+      if (!isOrganizer) {
+        throw new Error('Only event organizer can add participants');
+      }
+
+      const event = await this.eventModel.getEventById(eventId);
+      if (!event) {
+        throw new Error('Event not found');
+      }
+
+      if (event.status !== 'ACTIVE') {
+        throw new Error('Cannot add participants to inactive event');
+      }
+
+      const results = {
+        success: [] as string[],
+        failed: [] as { id: string; reason: string }[]
+      };
+
+      for (const participantId of participantIds) {
+        try {
+          // Check if user is already a participant
+          const isAlreadyParticipant = await this.eventRepository.isParticipant(eventId, participantId);
+          if (isAlreadyParticipant) {
+            results.failed.push({ id: participantId, reason: 'Already a participant' });
+            continue;
+          }
+
+          // Check participant limit
+          if (event.max_participants) {
+            const currentCount = await this.eventRepository.getParticipantCount(eventId);
+            if (currentCount >= event.max_participants) {
+              results.failed.push({ id: participantId, reason: 'Event has reached maximum participants' });
+              continue;
+            }
+          }
+
+          await this.eventRepository.addParticipant(eventId, participantId);
+          results.success.push(participantId);
+        } catch (error: any) {
+          results.failed.push({ id: participantId, reason: error.message });
+        }
+      }
+
+      console.log(`[${new Date().toISOString()}] Bulk participant addition: ${results.success.length} successful, ${results.failed.length} failed for event ${eventId}`);
+      
+      return results;
+    } catch (error) {
+      console.error('Error adding multiple participants:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send event reminders to all participants
+   * Implementation for requirement 2.5
+   */
+  async sendEventReminders(eventId: string, organizerId: string): Promise<void> {
+    try {
+      // Check if requester is the organizer
+      const isOrganizer = await this.eventModel.isEventOrganizer(eventId, organizerId);
+      if (!isOrganizer) {
+        throw new Error('Only event organizer can send reminders');
+      }
+
+      await this.notificationService.sendEventReminders(eventId);
+    } catch (error) {
+      console.error('Error sending event reminders:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Schedule automatic reminders for upcoming events
+   * Implementation for requirement 2.5
+   */
+  async scheduleAutomaticReminders(): Promise<void> {
+    try {
+      await this.notificationService.scheduleUpcomingEventReminders();
+    } catch (error) {
+      console.error('Error scheduling automatic reminders:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify if user has permission to view participant information
+   * Enhanced permission verification for requirements 2.4 and 2.5
+   */
+  private async verifyParticipantViewPermission(eventId: string, userId: string): Promise<boolean> {
+    try {
+      // Check if user is the organizer
+      const isOrganizer = await this.eventModel.isEventOrganizer(eventId, userId);
+      if (isOrganizer) {
+        return true;
+      }
+
+      // Check if user is a participant
+      const isParticipant = await this.eventRepository.isParticipant(eventId, userId);
+      if (isParticipant) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error verifying participant view permission:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get detailed participant information (organizer only)
+   */
+  async getDetailedParticipants(eventId: string, organizerId: string): Promise<User[]> {
+    try {
+      // Check if requester is the organizer
+      const isOrganizer = await this.eventModel.isEventOrganizer(eventId, organizerId);
+      if (!isOrganizer) {
+        throw new Error('Only event organizer can view detailed participant information');
+      }
+
+      return await this.eventRepository.getEventParticipants(eventId);
+    } catch (error) {
+      console.error('Error getting detailed participants:', error);
+      throw error;
     }
   }
 }
