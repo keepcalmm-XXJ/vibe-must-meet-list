@@ -6,39 +6,6 @@ import { MatchingPreferencesService } from './MatchingPreferencesService';
 import { EventService } from './EventService';
 import { MatchingRepository } from '../database/repositories/MatchingRepository';
 import { FeedbackLearningRepository } from '../database/repositories/FeedbackLearningRepository';
-import { any } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { string } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { string } from 'joi';
-import { any } from 'joi';
-import { any } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
-import { number } from 'joi';
 
 /**
  * 多维度匹配评分系统
@@ -1619,16 +1586,6 @@ export class MatchingService {
       }
       if (preferenceData.preferred_dimensions.includes('skills_relevance')) {
         scoreAdjustment += 3;
-      }
-
-      return {
-        ...result,
-        match_score: Math.min(100, result.match_score + scoreAdjustment)
-      };
-    });
-  }
-      if (preferenceData.preferred_dimensions.includes('position_compatibility')) {
-        scoreAdjustment += 5;
       }
 
       return {
