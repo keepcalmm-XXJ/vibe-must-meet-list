@@ -5,6 +5,7 @@ import { eventRoutes } from './events';
 import { matchingRoutes } from './matching';
 import { connectionRoutes } from './connections';
 import { messageRoutes } from './messages';
+import feedbackRoutes from './feedback';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use('/events', eventRoutes);
 router.use('/matching', matchingRoutes);
 router.use('/connections', connectionRoutes);
 router.use('/messages', messageRoutes);
+router.use('/feedback', feedbackRoutes);
 
 export { router as apiRoutes };

@@ -7,10 +7,23 @@ import { Database } from 'sqlite';
 jest.mock('../../../src/server/services/UserService');
 jest.mock('../../../src/server/services/MatchingPreferencesService');
 jest.mock('../../../src/server/services/EventService');
+jest.mock('../../../src/server/database/repositories/MatchingRepository');
+jest.mock('../../../src/server/database/repositories/FeedbackLearningRepository');
 
 describe('MatchingService', () => {
   let matchingService: MatchingService;
-  let mockDb: Database | undefined;
+  let mockDb: Database;
+
+  // Create mock database
+  beforeAll(() => {
+    mockDb = {
+      get: jest.fn(),
+      run: jest.fn(),
+      all: jest.fn(),
+      prepare: jest.fn(),
+      close: jest.fn(),
+    } as unknown as Database;
+  });
 
   // 测试用户档案
   const testUser1: UserProfile = {

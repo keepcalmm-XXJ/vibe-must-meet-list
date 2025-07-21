@@ -5,6 +5,40 @@ import { UserService } from './UserService';
 import { MatchingPreferencesService } from './MatchingPreferencesService';
 import { EventService } from './EventService';
 import { MatchingRepository } from '../database/repositories/MatchingRepository';
+import { FeedbackLearningRepository } from '../database/repositories/FeedbackLearningRepository';
+import { any } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { string } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { string } from 'joi';
+import { any } from 'joi';
+import { any } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
+import { number } from 'joi';
 
 /**
  * 多维度匹配评分系统
@@ -63,6 +97,7 @@ export class MatchingService {
   private preferencesService: MatchingPreferencesService;
   private eventService: EventService;
   private matchingRepository: MatchingRepository;
+  private feedbackRepository: FeedbackLearningRepository;
 
   // 默认权重配置
   private defaultWeights: MatchingWeights = {
@@ -80,6 +115,7 @@ export class MatchingService {
     this.preferencesService = new MatchingPreferencesService(db);
     this.eventService = new EventService();
     this.matchingRepository = new MatchingRepository();
+    this.feedbackRepository = new FeedbackLearningRepository();
   }
 
   /**
@@ -111,6 +147,9 @@ export class MatchingService {
     }
 
     const userPreferences = await this.preferencesService.getPreferences(userId);
+
+    // 检查并初始化冷启动档案（如果需要）
+    await this.ensureColdStartProfile(userId);
 
     // 获取会议中的其他参与者
     const participants = await this.eventService.getEventParticipants(eventId, userId);
@@ -155,6 +194,9 @@ export class MatchingService {
     // 应用排序策略
     matchResults = this.applySortStrategy(matchResults, sortStrategy, userPreferences);
 
+    // 应用个性化优化
+    matchResults = await this.applyPersonalizationOptimization(userId, matchResults);
+
     // 确保多样性
     if (filterOptions.diversityFactor && filterOptions.diversityFactor > 0) {
       matchResults = this.ensureDiversity(matchResults, filterOptions.diversityFactor);
@@ -179,7 +221,26 @@ export class MatchingService {
     preferences?: MatchingPreferences | null,
     weights?: MatchingWeights
   ): Promise<number> {
-    const usedWeights = weights || this.defaultWeights;
+    // 优先使用传入的权重，然后是用户个性化权重，最后是默认权重
+    let usedWeights = weights;
+    
+    if (!usedWeights) {
+      // 尝试获取用户个性化权重
+      const personalizedWeights = await this.feedbackRepository.getUserPreferenceWeights(user1.id);
+      if (personalizedWeights) {
+        usedWeights = {
+          industryWeight: personalizedWeights.industry_weight,
+          positionWeight: personalizedWeights.position_weight,
+          businessGoalWeight: personalizedWeights.business_goal_weight,
+          skillsWeight: personalizedWeights.skills_weight,
+          experienceWeight: personalizedWeights.experience_weight,
+          companySizeWeight: personalizedWeights.company_size_weight,
+          userPreferenceWeight: personalizedWeights.user_preference_weight
+        };
+      } else {
+        usedWeights = this.defaultWeights;
+      }
+    }
     
     // 计算各维度分数
     const dimensions = await this.calculateMatchingDimensions(user1, user2, preferences);
@@ -1315,6 +1376,311 @@ export class MatchingService {
 
     return Object.entries(strengthCounts)
       .sort(([,a], [,b]) => b - a)[0][0] as RecommendationStrength;
+  }
+
+  /**
+   * 确保用户有冷启动档案，如果没有则创建
+   */
+  private async ensureColdStartProfile(userId: string): Promise<void> {
+    try {
+      const existingProfile = await this.feedbackRepository.getUserColdStartProfile(userId);
+      if (!existingProfile) {
+        // 创建默认的冷启动档案
+        const userProfile = await this.userService.getProfile(userId);
+        if (userProfile) {
+          const coldStartProfile = {
+            user_id: userId,
+            initial_preferences: undefined,
+            industry_similarity_score: 0.0,
+            position_similarity_score: 0.0,
+            profile_completeness: this.calculateBasicProfileCompleteness(userProfile),
+            behavior_activity_score: 0.0,
+            recommendation_diversity_factor: 0.8, // 新用户需要更多样化的推荐
+            cold_start_phase: 'INITIAL' as const
+          };
+          
+          await this.feedbackRepository.upsertUserColdStartProfile(coldStartProfile);
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring cold start profile:', error);
+      // 不抛出错误，避免影响主要匹配功能
+    }
+  }
+
+  /**
+   * 计算基本档案完整度
+   */
+  private calculateBasicProfileCompleteness(user: UserProfile): number {
+    const fields = ['name', 'company', 'position', 'industry', 'bio'];
+    let completedFields = 0;
+    
+    for (const field of fields) {
+      const value = (user as any)[field];
+      if (value && typeof value === 'string' && value.trim()) {
+        completedFields++;
+      }
+    }
+    
+    // 考虑技能、兴趣和商业目标
+    if (user.skills && user.skills.length > 0) completedFields += 0.5;
+    if (user.interests && user.interests.length > 0) completedFields += 0.5;
+    if (user.business_goals && user.business_goals.length > 0) completedFields += 0.5;
+    
+    return Math.min(1.0, completedFields / (fields.length + 1.5));
+  }
+
+  /**
+   * 应用个性化优化
+   */
+  private async applyPersonalizationOptimization(
+    userId: string, 
+    matchResults: MatchResult[]
+  ): Promise<MatchResult[]> {
+    try {
+      const coldStartProfile = await this.feedbackRepository.getUserColdStartProfile(userId);
+      
+      if (!coldStartProfile) {
+        return matchResults; // 没有档案，返回原结果
+      }
+
+      // 根据冷启动阶段调整推荐策略
+      switch (coldStartProfile.cold_start_phase) {
+        case 'INITIAL':
+          return this.optimizeForColdStart(matchResults, coldStartProfile);
+        
+        case 'LEARNING':
+          return await this.optimizeForLearningPhase(userId, matchResults, coldStartProfile);
+        
+        case 'ADAPTING':
+          return await this.optimizeForAdaptingPhase(userId, matchResults, coldStartProfile);
+        
+        case 'ESTABLISHED':
+          return await this.optimizeForEstablishedUser(userId, matchResults, coldStartProfile);
+        
+        default:
+          return matchResults;
+      }
+    } catch (error) {
+      console.error('Error applying personalization optimization:', error);
+      return matchResults; // 发生错误时返回原结果
+    }
+  }
+
+  /**
+   * 为冷启动用户优化推荐
+   */
+  private optimizeForColdStart(
+    matchResults: MatchResult[], 
+    profile: any
+  ): MatchResult[] {
+    // 冷启动用户：增加多样性，降低门槛
+    const diversityFactor = profile.recommendation_diversity_factor || 0.8;
+    
+    // 按行业和职位进行多样化排序
+    const diversified = this.ensureDiversity(matchResults, diversityFactor);
+    
+    // 适当降低匹配分数要求，给更多用户机会
+    return diversified.map(result => ({
+      ...result,
+      match_score: Math.min(100, result.match_score * 1.1) // 轻微提升分数
+    }));
+  }
+
+  /**
+   * 为学习阶段用户优化推荐
+   */
+  private async optimizeForLearningPhase(
+    userId: string,
+    matchResults: MatchResult[], 
+    profile: any
+  ): Promise<MatchResult[]> {
+    // 学习阶段：结合反馈历史进行优化
+    const recentFeedback = await this.feedbackRepository.getUserFeedbackHistory(userId, {
+      limit: 10
+    });
+
+    if (recentFeedback.length === 0) {
+      return matchResults;
+    }
+
+    // 分析用户偏好模式
+    const preferredIndustries = new Set<string>();
+    const preferredPositions = new Set<string>();
+    
+    for (const feedback of recentFeedback) {
+      if (feedback.rating && feedback.rating >= 4) {
+        // 从反馈中推断偏好（需要获取目标用户信息）
+        // 这里简化处理
+        preferredIndustries.add('positive_industry'); // 占位符
+        preferredPositions.add('positive_position'); // 占位符
+      }
+    }
+
+    // 基于学到的偏好调整推荐排序
+    return matchResults.sort((a, b) => {
+      const aIndustryBonus = preferredIndustries.has(a.target_user.industry || '') ? 10 : 0;
+      const bIndustryBonus = preferredIndustries.has(b.target_user.industry || '') ? 10 : 0;
+      
+      return (b.match_score + bIndustryBonus) - (a.match_score + aIndustryBonus);
+    });
+  }
+
+  /**
+   * 为适应阶段用户优化推荐
+   */
+  private async optimizeForAdaptingPhase(
+    userId: string,
+    matchResults: MatchResult[], 
+    profile: any
+  ): Promise<MatchResult[]> {
+    // 适应阶段：结合算法洞察进行精准优化
+    const insights = await this.feedbackRepository.getUserAlgorithmInsights(userId);
+    
+    let optimizedResults = [...matchResults];
+
+    for (const insight of insights) {
+      if (insight.insight_type === 'DIMENSION_PREFERENCE' && insight.confidence_level > 0.6) {
+        // 基于维度偏好调整分数
+        optimizedResults = this.adjustScoresByDimensionPreference(optimizedResults, insight);
+      } else if (insight.insight_type === 'REJECTION_PATTERN' && insight.confidence_level > 0.7) {
+        // 基于拒绝模式过滤结果
+        optimizedResults = this.filterByRejectionPattern(optimizedResults, insight);
+      }
+    }
+
+    return optimizedResults;
+  }
+
+  /**
+   * 为成熟用户优化推荐
+   */
+  private async optimizeForEstablishedUser(
+    userId: string,
+    matchResults: MatchResult[], 
+    profile: any
+  ): Promise<MatchResult[]> {
+    // 成熟用户：高度个性化，精准推荐
+    const [insights, recentStats] = await Promise.all([
+      this.feedbackRepository.getUserAlgorithmInsights(userId),
+      this.feedbackRepository.getFeedbackLearningStats(userId)
+    ]);
+
+    let optimizedResults = [...matchResults];
+
+    // 应用所有可用的洞察
+    for (const insight of insights) {
+      if (insight.confidence_level > 0.5) {
+        switch (insight.insight_type) {
+          case 'DIMENSION_PREFERENCE':
+            optimizedResults = this.adjustScoresByDimensionPreference(optimizedResults, insight);
+            break;
+          case 'CONNECTION_SUCCESS_PATTERN':
+            optimizedResults = this.boostBySuccessPattern(optimizedResults, insight);
+            break;
+          case 'REJECTION_PATTERN':
+            optimizedResults = this.filterByRejectionPattern(optimizedResults, insight);
+            break;
+        }
+      }
+    }
+
+    // 基于历史成功率进一步优化
+    if (recentStats && recentStats.connection_success_rate > 0.7) {
+      // 高成功率用户，可以提供更具挑战性的推荐
+      optimizedResults = optimizedResults.filter(result => result.match_score >= 70);
+    }
+
+    return optimizedResults;
+  }
+
+  /**
+   * 基于维度偏好调整分数
+   */
+  private adjustScoresByDimensionPreference(
+    results: MatchResult[], 
+    insight: any
+  ): MatchResult[] {
+    const preferenceData = insight.insight_data.dimension_preferences;
+    if (!preferenceData) return results;
+
+    return results.map(result => {
+      let scoreAdjustment = 0;
+      
+      // 基于偏好调整分数（简化实现）
+      if (preferenceData.preferred_dimensions.includes('industry_relevance')) {
+        scoreAdjustment += 5;
+      }
+      if (preferenceData.preferred_dimensions.includes('position_compatibility')) {
+        scoreAdjustment += 5;
+      }
+      if (preferenceData.preferred_dimensions.includes('business_goal_synergy')) {
+        scoreAdjustment += 8;
+      }
+      if (preferenceData.preferred_dimensions.includes('skills_relevance')) {
+        scoreAdjustment += 3;
+      }
+
+      return {
+        ...result,
+        match_score: Math.min(100, result.match_score + scoreAdjustment)
+      };
+    });
+  }
+      if (preferenceData.preferred_dimensions.includes('position_compatibility')) {
+        scoreAdjustment += 5;
+      }
+
+      return {
+        ...result,
+        match_score: Math.min(100, result.match_score + scoreAdjustment)
+      };
+    });
+  }
+
+  /**
+   * 基于拒绝模式过滤结果
+   */
+  private filterByRejectionPattern(
+    results: MatchResult[], 
+    insight: any
+  ): MatchResult[] {
+    const rejectionData = insight.insight_data.rejection_patterns;
+    if (!rejectionData) return results;
+
+    // 过滤掉容易被拒绝的类型（简化实现）
+    return results.filter(result => {
+      // 这里应该基于具体的拒绝原因进行过滤
+      // 简化实现：降低低分推荐的权重
+      return result.match_score >= 60;
+    });
+  }
+
+  /**
+   * 基于成功模式提升推荐
+   */
+  private boostBySuccessPattern(
+    results: MatchResult[], 
+    insight: any
+  ): MatchResult[] {
+    const successData = insight.insight_data.connection_success_patterns;
+    if (!successData) return results;
+
+    return results.map(result => {
+      let scoreBoost = 0;
+      
+      // 基于成功因子提升分数（简化实现）
+      for (const [factor, weight] of Object.entries(successData.success_factors || {})) {
+        if (typeof weight === 'number' && weight > 0.7) {
+          scoreBoost += 8;
+        }
+      }
+
+      return {
+        ...result,
+        match_score: Math.min(100, result.match_score + scoreBoost)
+      };
+    });
   }
 
   /**
